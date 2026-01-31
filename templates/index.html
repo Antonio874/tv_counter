@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Счетчик телевизоров</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card { margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        #resultImage { max-width: 100%; border: 2px solid #ddd; border-radius: 5px; }
+        .stat-card { background: #f8f9fa; border: 1px solid #dee2e6; transition: transform 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .positive { color: #28a745; font-weight: bold; }
+        .negative { color: #dc3545; font-weight: bold; }
+        .history-img { max-width: 100px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-center mb-4"><i class="fas fa-tv"></i> Счетчик телевизоров</h1>
+        
+        <div class="row">
+            <!-- Левая колонка -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-upload"></i> Загрузка изображения
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <input type="file" id="fileInput" class="form-control" accept="image/*">
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="processFile()">
+                            <i class="fas fa-play"></i> Обработать
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <i class="fas fa-camera"></i> Веб-камера
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center">
+                            <video id="videoFeed" autoplay playsinline style="width: 100%; display: none;"></video>
+                            <p class="text-muted">Камера отключена</p>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-success w-100" onclick="startCamera()">
+                                <i class="fas fa-video"></i> Включить камеру
+                            </button>
+                            <button class="btn btn-warning w-100 mt-2" onclick="captureFrame()" style="display: none;">
+                                <i class="fas fa-camera"></i> Сделать снимок
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Правая колонка -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <i class="fas fa-chart-bar"></i> Результаты
+                    </div>
+                    <div class="card-body text-center">
+                        <div id="results">
+                            <p class="lead">Загрузите изображение или включите камеру</p>
+                            <img id="resultImage" class="img-fluid rounded border" style="max-height: 300px; display: none;">
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="alert alert-primary">
+                                    <h5><i class="fas fa-tv"></i> Текущий счет</h5>
+                                    <h2 id="currentCount" class="display-4">0</h2>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-info">
+                                    <h5><i class="fas fa-exchange-alt"></i> Изменение</h5>
+                                    <h2 id="changeValue" class="display-4">+0</h2>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="fas fa-chart-line"></i> Статистика
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-4 mb-3">
+                                <div class="stat-card p-3 rounded">
+                                    <h5><i class="fas fa-history"></i> Было</h5>
+                                    <h2 id="wasCount" class="text-primary">0</h2>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="stat-card p-3 rounded">
+                                    <h5><i class="fas fa-bullseye"></i> Стало</h5>
+                                    <h2 id="becameCount" class="text-success">0</h2>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="stat-card p-3 rounded">
+                                    <h5><i class="fas fa-exchange-alt"></i> Изменение</h5>
+                                    <h2 id="changeCount" class="text-danger">+0</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-outline-warning w-100" onclick="updateStats()">
+                            <i class="fas fa-sync"></i> Обновить статистику
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- История -->
+        <div class="card mt-4">
+            <div class="card-header bg-secondary text-white">
+                <i class="fas fa-list"></i> История детекций
+            </div>
+            <div class="card-body">
+                <div id="historyList">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                <th>Количество</th>
+                                <th>Изменение</th>
+                                <th>Изображение</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTable">
+                            <tr><td colspan="4" class="text-center">Нет данных</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let mediaStream = null;
+        let isCameraActive = false;
+        
+        const videoFeed = document.getElementById('videoFeed');
+        const resultImage = document.getElementById('resultImage');
+        const currentCountEl = document.getElementById('currentCount');
+        const changeValueEl = document.getElementById('changeValue');
+        const historyTable = document.getElementById('historyTable');
+        
+        // Запуск веб-камеры
+        async function startCamera() {
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                videoFeed.srcObject = mediaStream;
+                videoFeed.style.display = 'block';
+                document.querySelector('#videoFeed + p').style.display = 'none';
+                document.querySelector('button[onclick="captureFrame()"]').style.display = 'block';
+                isCameraActive = true;
+                showMessage('Камера активирована', 'success');
+            } catch (error) {
+                console.error('Ошибка камеры:', error);
+                showMessage('Ошибка доступа к камере', 'danger');
+            }
+        }
+        
+        // Сделать снимок с камеры
+        async function captureFrame() {
+            if (!isCameraActive) {
+                showMessage('Сначала включите камеру', 'warning');
+                return;
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = videoFeed.videoWidth;
+            canvas.height = videoFeed.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoFeed, 0, 0);
+            
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('image', blob, 'camera_frame.jpg');
+                
+                try {
+                    showMessage('Обработка снимка...', 'info');
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    if (response.ok) {
+                        displayResults(result);
+                    } else {
+                        showMessage('Ошибка: ' + result.error, 'danger');
+                    }
+                } catch (error) {
+                    showMessage('Ошибка сети', 'danger');
+                }
+            }, 'image/jpeg');
+        }
+        
+        // Обработка загруженного файла
+        async function processFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showMessage('Выберите файл', 'warning');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                showMessage('Обработка изображения...', 'info');
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    displayResults(result);
+                } else {
+                    showMessage('Ошибка: ' + result.error, 'danger');
+                }
+            } catch (error) {
+                showMessage('Ошибка сети', 'danger');
+            }
+        }
+        
+        // Отображение результатов
+        function displayResults(result) {
+            // Показываем обработанное изображение
+            resultImage.src = result.result_image + '?t=' + new Date().getTime();
+            resultImage.style.display = 'block';
+            
+            // Обновляем счетчики
+            currentCountEl.textContent = result.count;
+            changeValueEl.textContent = result.change >= 0 ? `+${result.change}` : result.change;
+            
+            // Цвет индикатора изменения
+            if (result.change > 0) {
+                changeValueEl.className = 'display-4 text-success';
+            } else if (result.change < 0) {
+                changeValueEl.className = 'display-4 text-danger';
+            } else {
+                changeValueEl.className = 'display-4 text-muted';
+            }
+            
+            // Обновляем статистику "Было/Стало" из API
+            updateStats();
+            
+            // Обновляем историю
+            updateHistory();
+            
+            showMessage(`Обнаружено телевизоров: ${result.count}`, 'success');
+        }
+        
+        // Обновление истории
+        async function updateHistory() {
+            try {
+                const response = await fetch('/history');
+                const history = await response.json();
+                
+                if (history.length === 0) {
+                    historyTable.innerHTML = '<tr><td colspan="4" class="text-center">Нет данных</td></tr>';
+                    return;
+                }
+                
+                historyTable.innerHTML = '';
+                history.reverse().forEach(entry => {
+                    const row = document.createElement('tr');
+                    const changeClass = entry.change > 0 ? 'text-success fw-bold' : 
+                                      entry.change < 0 ? 'text-danger fw-bold' : 'text-muted';
+                    
+                    row.innerHTML = `
+                        <td>${entry.timestamp}</td>
+                        <td>${entry.count}</td>
+                        <td class="${changeClass}">
+                            ${entry.change >= 0 ? '+' : ''}${entry.change}
+                        </td>
+                        <td>
+                            <a href="${entry.image_path}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-image"></i> Просмотр
+                            </a>
+                        </td>
+                    `;
+                    historyTable.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Ошибка загрузки истории:', error);
+                historyTable.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Ошибка загрузки</td></tr>';
+            }
+        }
+        
+        // Обновление статистики
+        async function updateStats() {
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+                
+                if (stats.error) {
+                    console.warn('Нет данных для статистики');
+                    return;
+                }
+                
+                // Обновляем блок "Было/Стало/Изменение"
+                document.getElementById('wasCount').textContent = stats.was;
+                document.getElementById('becameCount').textContent = stats.became;
+                
+                const changeElement = document.getElementById('changeCount');
+                changeElement.textContent = stats.change >= 0 ? `+${stats.change}` : stats.change;
+                
+                // Цвет изменения
+                if (stats.change > 0) {
+                    changeElement.className = 'text-success';
+                } else if (stats.change < 0) {
+                    changeElement.className = 'text-danger';
+                } else {
+                    changeElement.className = 'text-muted';
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки статистики:', error);
+            }
+        }
+        
+        // Вспомогательная функция для сообщений
+        function showMessage(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-bg-${type} border-0`;
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+                            data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            const container = document.createElement('div');
+            container.className = 'toast-container position-fixed top-0 end-0 p-3';
+            container.appendChild(toast);
+            document.body.appendChild(container);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                container.remove();
+            });
+        }
+        
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            updateHistory();
+            updateStats();
+        });
+    </script>
+</body>
+</html>
